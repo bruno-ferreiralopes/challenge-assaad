@@ -114,36 +114,67 @@ Como testar:
 
 ```
 src/
-  proxy.ts                              # Entry point do proxy Next.js 16
+  proxy.ts                                    # Entry point do proxy Next.js 16
   app/
-    api/auth/login/route.ts             # Login com status HTTP semanticos
-    api/auth/refresh/route.ts           # Refresh centralizado
-    api/auth/logout/route.ts            # Logout (limpa cookies)
-    api/health/route.ts                 # Health check autenticado
-    demo/multi-tab/page.tsx             # Demo multi-aba
-    dashboard/page.tsx                  # Area autenticada
-    login/page.tsx                      # Login
-  lib/
-    api/authenticated-fetch.ts          # Fetch com retry em 401 + redirect
-    auth/
-      proxy-handler.ts                  # Logica do proxy
-      refresh-session-server.ts         # getUser + deduplicacao
-      session-cookie.ts                 # Le exp e decide se refresh e necessario
-      session-coordinator.client.ts     # Web Lock + BroadcastChannel
-      invalid-session.ts                # Deteccao centralizada de sessao invalida
-      logout-server.ts                  # signOut() em background
-      errors.ts                         # Mensagens e status HTTP de erros de auth
-      session-cookies.ts                # Limpeza de cookies sb-*
-      actions.ts                        # logoutAction (Server Action)
-    supabase/
-      server.ts                         # Cliente Supabase (RSC / actions)
-      request-client.ts                 # Cliente Supabase (route handlers / proxy)
-      client.ts                         # Cliente Supabase (browser)
-  providers/session-provider.tsx        # Sync ao focar/trocar aba
+    layout.tsx                                # Layout raiz (providers)
+    page.tsx                                  # Redirect para /dashboard
+    globals.css
+    login/
+      page.tsx                                # Pagina de login
+    dashboard/
+      page.tsx                                # Area autenticada
+    demo/
+      multi-tab/
+        page.tsx                              # Demo multi-aba
+    api/
+      auth/
+        login/route.ts                        # POST login (status HTTP semanticos)
+        logout/route.ts                       # POST logout (limpa cookies)
+        refresh/route.ts                      # POST refresh centralizado
+      health/route.ts                         # GET health check autenticado
   components/
-    auth/login-form.tsx                 # Formulario de login (fetch)
-    auth/logout-button.tsx              # Botao de logout
-    dashboard/health-check-panel.tsx    # Demo de authenticatedFetch
+    auth/
+      login-form.tsx                          # Formulario de login (fetch)
+      logout-button.tsx                       # Botao de logout
+    dashboard/
+      health-check-panel.tsx                  # Demo de authenticatedFetch
+      user-profile-card.tsx                   # Card com dados do usuario
+    demo/
+      multi-tab-demo-panel.tsx                # Painel da demo multi-aba
+    ui/
+      form-tooltip.tsx                        # Tooltip animado para erros de form
+      formatted-date.tsx                      # Data formatada (pt-BR)
+      spinner.tsx                             # Spinner reutilizavel
+  hooks/
+    use-health-check.ts                       # Mutation TanStack Query (health)
+  lib/
+    api/
+      authenticated-fetch.ts                  # Fetch com retry em 401 + redirect
+    auth/
+      actions.ts                              # logoutAction (Server Action)
+      api-auth.ts                             # requireClaims + attachSessionCookies
+      errors.ts                               # Mensagens e status HTTP de auth
+      invalid-session.ts                      # Deteccao centralizada de sessao invalida
+      logout-server.ts                        # signOut() em background
+      proxy-handler.ts                        # Logica do proxy
+      refresh-session-server.ts               # getUser + deduplicacao in-flight
+      routes.ts                               # Rotas protegidas / auth
+      session-constants.ts                    # Nomes de lock e canal de sync
+      session-cookie.ts                       # Le exp do JWT e decide refresh
+      session-coordinator.client.ts           # Web Lock + BroadcastChannel
+      session-cookies.ts                      # Limpeza de cookies sb-*
+    supabase/
+      client.ts                               # Cliente Supabase (browser)
+      cookie-options.ts                       # Opcoes httpOnly dos cookies
+      fetch-with-timeout.ts                   # Fetch com timeout (10s)
+      login-client.ts                         # Cliente isolado para login (sem ler cookies)
+      request-client.ts                       # Cliente Supabase (route handlers / proxy)
+      server.ts                               # Cliente Supabase (RSC / actions)
+    user/
+      profile.ts                              # getUserProfile (RSC)
+  providers/
+    query-provider.tsx                        # TanStack Query
+    session-provider.tsx                      # Refresh ao focar/trocar aba
 ```
 
 ## Limitacoes conhecidas
