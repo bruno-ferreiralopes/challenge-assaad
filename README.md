@@ -172,7 +172,7 @@ npm run start  # Servidor de producao
 - A deduplicacao server-side funciona **por instancia Node**. Em serverless com muitas instancias, a coordenacao client-side (Web Lock + BroadcastChannel) e o mecanismo principal anti-corrida.
 - Cookies sao `httpOnly`: o browser nao le o JWT diretamente; refresh sempre passa pelo servidor (`/api/auth/refresh` ou proxy).
 - O formulario de login **exige JavaScript** (migrado de Server Action para Route Handler pela observabilidade de status HTTP).
-- Nao ha rate limiting na aplicacao; o limite vigente e o do proprio Supabase.
+- Nao ha rate limiting na aplicacao; o limite vigente é o do proprio Supabase.
 
 
 
