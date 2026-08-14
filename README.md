@@ -85,7 +85,6 @@ O proxy ignora refresh em `/api/auth/login`, `/api/auth/logout` e `/api/auth/ref
 
 **Login (**`POST /api/auth/login`**):**
 
-- Credenciais invalidas retornam `401` (nao mais HTTP 200 com erro no corpo).
 - Cookies `sb-*` sao removidos do header antes de `signInWithPassword` para evitar refresh tokens invalidos envenenando o login.
 - O formulario em `login-form.tsx` usa `fetch`; em sucesso redireciona com `window.location.href = "/dashboard"`.
 
@@ -176,6 +175,8 @@ src/
     query-provider.tsx                        # TanStack Query
     session-provider.tsx                      # Refresh ao focar/trocar aba
 ```
+
+
 
 ## Limitacoes conhecidas
 
