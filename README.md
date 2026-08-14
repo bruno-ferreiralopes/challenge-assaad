@@ -1,33 +1,41 @@
-# Challenge Assaad - Sessao Supabase sem deslogamento aleatorio
+# Challenge Assaad - Sessão Supabase sem deslogamento aleatório
 
 Testável em `https://challenge-assaad-sigma.vercel.app/`
 
-App Next.js 16 (App Router) + Supabase Auth com sessao em cookies `httpOnly` (SSR).
+App Next.js 16 (App Router) + Supabase Auth com sessão em cookies `httpOnly` (SSR).
 
-Este repositorio implementa a solucao para o problema de **deslogamento aleatorio** causado por condicao de corrida no refresh de tokens entre abas e requisicoes simultaneas.
+Este repositório implementa a solução para o problema de **deslogamento aleatório**, causado por condição de corrida no refresh de tokens entre abas e requisições simultâneas.
 
-## Causa-raiz (otica frontend)
+## Causa-raiz (ótica frontend)
 
-O Supabase GoTrue usa **refresh tokens de uso unico**: cada renovacao invalida o token anterior e emite um novo par access/refresh.
+O Supabase GoTrue usa **refresh tokens de uso único**: cada renovação invalida o token anterior e emite um novo par access/refresh.
 
-Quando varias abas ou requests tentam renovar ao mesmo tempo:
+Quando várias abas ou requests tentam renovar ao mesmo tempo:
 
 1. Aba A e aba B leem o mesmo refresh token dos cookies.
 2. Aba A renova com sucesso; o servidor grava novos cookies.
 3. Aba B ainda usa o refresh token antigo e recebe `refresh_token_not_found` ou erro de rede.
-4. O app interpretava isso como falha de autenticacao e **deslogava o usuario**.
+4. O app interpretava isso como falha de autenticação e **deslogava o usuário**.
 
 Fatores que pioravam o problema neste projeto após a implementação mínima:
 
-- Nao havia coordenacao entre abas (cada uma podia disparar refresh sozinha).
-- Em `401`, o client fazia logout imediato sem tentar recuperar a sessao.
-- Cookies invalidos (`refresh_token_not_found`) nao eram limpos de forma uniforme.
+- Não havia coordenação entre abas (cada uma podia disparar refresh sozinha).
+- Em `401`, o client fazia logout imediato sem tentar recuperar a sessão.
+- Cookies inválidos (`refresh_token_not_found`) não eram limpos de forma uniforme.
 
+## Solução implementada
 
+### Overview
 
-## Solucao implementada
+O deslogamento aleatório não vinha de credenciais erradas, e sim de **várias partes do app tentando renovar a sessão ao mesmo tempo**. O Supabase invalida o refresh token antigo a cada renovação; se duas abas (ou duas requisições) disputam o mesmo token, uma ganha e a outra falha. O código tratava essa falha como “sessão morta” e mandava o usuário para o login.
 
+A linha de pensamento foi dividir o problema em três frentes:
 
+1. **Renovar do jeito certo** — Garantir que o servidor use o fluxo recomendado pelo `@supabase/ssr`, gravando cookies de forma consistente em cada camada (proxy, rotas de API e Server Components), sem refresh duplicado nos fluxos de login e logout.
+2. **Coordenar quem renova** — No browser, apenas uma aba executa o refresh por vez (Web Lock) e avisa as demais (BroadcastChannel). No servidor, requisições simultâneas com o mesmo cookie compartilham uma única chamada em andamento. O refresh também é **condicional**: se o token ainda vale por mais de 2 minutos, não há chamada desnecessária ao Supabase.
+3. **Não deslogar no primeiro erro** — Um `401` pode ser transitório (a outra aba acabou de renovar e esta requisição usou o cookie antigo). Antes de encerrar a sessão, o app tenta recuperá-la uma vez; só depois faz logout e redireciona para `/login`.
+
+Em resumo: **menos refreshes, um refresh por vez, recuperação antes do logout e limpeza de cookies inválidos**. Os tópicos abaixo detalham como cada parte foi implementada.
 
 ### 1. Fluxo correto `@supabase/ssr`
 
@@ -40,19 +48,19 @@ Fatores que pioravam o problema neste projeto após a implementação mínima:
 | Browser     | `lib/supabase/client.ts` + `providers/session-provider.tsx` | Cliente browser e sync ao focar/trocar aba                                                                   |
 
 
-O refresh real acontece em `**getUser()**`, que renova tokens expirados e dispara `setAll()` para gravar cookies.
+O refresh real acontece em `getUser()`, que renova tokens expirados e dispara `setAll()` para gravar cookies.
 
-**Refresh condicional:** `lib/auth/session-cookie.ts` le o `exp` do JWT nos cookies e so chama `getUser()` quando o token expira em menos de 2 minutos. Em `401`, `authenticatedFetch` forca refresh com `{ force: true }`.
+**Refresh condicional:** `lib/auth/session-cookie.ts` lê o `exp` do JWT nos cookies e só chama `getUser()` quando o token expira em menos de 2 minutos. Em `401`, `authenticatedFetch` força refresh com `{ force: true }`.
 
-**Sessao invalida:** `lib/auth/invalid-session.ts` centraliza a deteccao por status HTTP e `error.code` do GoTrue, evitando heuristica em mensagens de erro.
+**Sessão inválida:** `lib/auth/invalid-session.ts` centraliza a detecção por status HTTP e `error.code` do GoTrue, evitando heurística em mensagens de erro.
 
-### 2. Coordenacao multi-aba / multi-request
+### 2. Coordenação multi-aba / multi-request
 
 **Client-side (**`lib/auth/session-coordinator.client.ts`**):**
 
-- `navigator.locks.request('supabase-session-refresh')` garante **uma unica aba** executando refresh por vez.
+- `navigator.locks.request('supabase-session-refresh')` garante **uma única aba** executando refresh por vez.
 - `BroadcastChannel('supabase-session-sync')` notifica as outras abas quando o refresh termina.
-- `SessionProvider` dispara refresh ao montar, ao focar a janela e ao voltar a aba (`visibilitychange`).
+- `SessionProvider` dispara refresh ao montar, ao focar a janela e ao voltar à aba (`visibilitychange`).
 
 **Server-side (**`lib/auth/refresh-session-server.ts`**):**
 
@@ -61,53 +69,47 @@ O refresh real acontece em `**getUser()**`, que renova tokens expirados e dispar
 **Endpoints de auth:**
 
 
-| Metodo | Rota                | Papel                                                                |
+| Método | Rota                | Papel                                                                |
 | ------ | ------------------- | -------------------------------------------------------------------- |
-| `POST` | `/api/auth/login`   | Login com status HTTP semanticos (`400`, `401`, `403`, `429`, `503`) |
-| `POST` | `/api/auth/refresh` | Unico ponto de refresh iniciado pelo browser                         |
-| `POST` | `/api/auth/logout`  | Limpa cookies e revoga sessao em background                          |
+| `POST` | `/api/auth/login`   | Login com status HTTP semânticos (`400`, `401`, `403`, `429`, `503`) |
+| `POST` | `/api/auth/refresh` | Único ponto de refresh iniciado pelo browser                         |
+| `POST` | `/api/auth/logout`  | Limpa cookies e revoga sessão em background                          |
 
 
-O proxy ignora refresh em `/api/auth/login`, `/api/auth/logout` e `/api/auth/refresh` para evitar corrida de cookies nesses fluxos.
+O proxy ignora refresh em `/api/auth/login`, `/api/auth/logout` e `/api/auth/refresh`, para evitar corrida de cookies nesses fluxos.
 
 ### 3. UX resiliente em 401
 
 `lib/api/authenticated-fetch.ts`:
 
 1. Recebe `401`.
-2. Chama `coordinatedRefresh({ force: true })` (tenta recuperar sessao).
+2. Chama `coordinatedRefresh({ force: true })` (tenta recuperar sessão).
 3. Repete a request original **uma vez**.
-4. Se ainda falhar: `POST /api/auth/logout` e `window.location.href = "/login"` (sem lancar erro para o caller).
-
-
+4. Se ainda falhar: `POST /api/auth/logout` e `window.location.href = "/login"` (sem lançar erro para o caller).
 
 ### 4. Login e logout
 
 **Login (**`POST /api/auth/login`**):**
 
-- Cookies `sb-*` sao removidos do header antes de `signInWithPassword` para evitar refresh tokens invalidos envenenando o login.
-- O formulario em `login-form.tsx` usa `fetch`; em sucesso redireciona com `window.location.href = "/dashboard"`.
+- Cookies `sb-*` são removidos do header antes de `signInWithPassword`, para evitar refresh tokens inválidos envenenando o login.
+- O formulário em `login-form.tsx` usa `fetch`; em sucesso, redireciona com `window.location.href = "/dashboard"`.
 
 **Logout (**`logoutAction` **+** `POST /api/auth/logout`**):**
 
-- `signOut()` roda em background (`lib/auth/logout-server.ts`) enquanto os cookies sao limpos imediatamente.
-- O botao de logout redireciona com `window.location.assign("/login")`.
+- `signOut()` roda em background (`lib/auth/logout-server.ts`), enquanto os cookies são limpos imediatamente.
+- O botão de logout redireciona com `window.location.assign("/login")`.
 
+### 5. Demonstração multi-aba
 
-
-### 5. Demonstracao multi-aba
-
-Pagina: `**/demo/multi-tab**` (link no dashboard)
+Página: `/demo/multi-tab` (link no dashboard).
 
 Como testar:
 
-1. Faca login.
+1. Faça login.
 2. Abra `/demo/multi-tab` em 2 ou mais abas.
-3. Clique em "Forcar refresh coordenado" em todas quase ao mesmo tempo.
+3. Clique em "Forçar refresh coordenado" em todas, quase ao mesmo tempo.
 4. Observe no log: uma aba executa o POST; as demais recebem evento via BroadcastChannel.
-5. Troque de aba apos inatividade: o `SessionProvider` renova ao focar.
-
-
+5. Troque de aba após inatividade: o `SessionProvider` renova ao focar.
 
 ## Estrutura do projeto
 
@@ -176,9 +178,7 @@ src/
     session-provider.tsx                      # Refresh ao focar/trocar aba
 ```
 
+## Limitações conhecidas
 
-
-## Limitacoes conhecidas
-
-- A deduplicacao server-side funciona **por instancia Node**. Em serverless com muitas instancias, a coordenacao client-side (Web Lock + BroadcastChannel) e o mecanismo principal anti-corrida.
+- A deduplicação server-side funciona **por instância Node**. Em serverless com muitas instâncias, a coordenação client-side (Web Lock + BroadcastChannel) é o mecanismo principal anti-corrida.
 
