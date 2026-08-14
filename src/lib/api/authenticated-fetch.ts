@@ -1,16 +1,6 @@
 import { getApiErrorMessage, getAuthErrorMessage } from "@/lib/auth/errors";
 import { coordinatedRefresh } from "@/lib/auth/session-coordinator.client";
 
-class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "AuthError";
-  }
-}
-
 class ServerError extends Error {
   constructor(message: string) {
     super(message);
@@ -18,7 +8,11 @@ class ServerError extends Error {
   }
 }
 
-async function handleUnauthorized() {
+const redirectPending = new Promise<never>(() => {
+  // Mantem a promise pendente ate a navegacao concluir para bloquear a navegacao.
+});
+
+async function handleUnauthorized(): Promise<never> {
   try {
     await fetch("/api/auth/logout", { method: "POST" });
   } catch {
@@ -26,6 +20,7 @@ async function handleUnauthorized() {
   }
 
   window.location.href = "/login";
+  return redirectPending;
 }
 
 async function parseJsonBody(response: Response) {
@@ -34,15 +29,6 @@ async function parseJsonBody(response: Response) {
   } catch {
     return {};
   }
-}
-
-function getErrorBody(body: unknown) {
-  return typeof body === "object" &&
-    body !== null &&
-    "error" in body &&
-    typeof (body as { error?: string }).error === "string"
-    ? (body as { error: string })
-    : undefined;
 }
 
 export async function authenticatedFetch<T>(url: string): Promise<T> {
@@ -56,8 +42,8 @@ export async function authenticatedFetch<T>(url: string): Promise<T> {
 
   let body: unknown = await parseJsonBody(response);
 
-  if (response.status === 401 || response.status === 403) {
-    const recovered = await coordinatedRefresh();
+  if (response.status === 401) {
+    const recovered = await coordinatedRefresh({ force: true });
 
     if (recovered) {
       try {
@@ -72,14 +58,11 @@ export async function authenticatedFetch<T>(url: string): Promise<T> {
       }
     }
 
-    await handleUnauthorized();
-    throw new AuthError(
-      getApiErrorMessage(response.status, getErrorBody(body)),
-      response.status,
-    );
+    return handleUnauthorized();
   }
 
-  const errorBody = getErrorBody(body);
+  const errorBody =
+    body && typeof body === "object" ? (body as { error?: string }) : undefined;
 
   if (response.status === 500 || response.status === 503) {
     throw new ServerError(getApiErrorMessage(response.status, errorBody));

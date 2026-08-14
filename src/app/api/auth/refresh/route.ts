@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { attachSessionCookies } from "@/lib/auth/api-auth";
 import { getApiErrorMessage } from "@/lib/auth/errors";
+import { isInvalidSessionError } from "@/lib/auth/invalid-session";
 import {
   getSessionDedupeKey,
   refreshSessionWithUser,
@@ -9,19 +10,7 @@ import {
 import { clearSupabaseCookies } from "@/lib/auth/session-cookies";
 import { createRequestClient } from "@/lib/supabase/request-client";
 
-function isInvalidSessionError(error: {
-  status?: number;
-  code?: string;
-  message?: string;
-}) {
-  return (
-    error.status === 401 ||
-    error.status === 403 ||
-    error.code === "refresh_token_not_found" ||
-    error.message?.includes("Refresh Token")
-  );
-}
-
+//Rota para refresh
 export async function POST(request: NextRequest) {
   const cookieHeader = request.headers.get("cookie") ?? "";
 
@@ -32,10 +21,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let forceRefresh = false;
+
+  try {
+    const body = (await request.json()) as { force?: boolean };
+    forceRefresh = body.force === true;
+  } catch {
+    forceRefresh = false;
+  }
+
   const { supabase, supabaseResponse } = createRequestClient(request);
-  const { userId, error } = await refreshSessionWithUser(
+  const { userId, skipped, error } = await refreshSessionWithUser(
     supabase,
     getSessionDedupeKey(cookieHeader),
+    { cookieHeader, forceRefresh },
   );
 
   if (error && isInvalidSessionError(error)) {
@@ -55,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
 
   return attachSessionCookies(
-    NextResponse.json({ success: true, userId }),
+    NextResponse.json({ success: true, userId, skipped }),
     supabaseResponse,
   );
 }

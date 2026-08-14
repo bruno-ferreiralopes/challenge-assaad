@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getApiErrorMessage } from "@/lib/auth/errors";
+import { isInvalidSessionError } from "@/lib/auth/invalid-session";
 import {
   getSessionDedupeKey,
   refreshSessionWithUser,
@@ -27,19 +28,6 @@ function unauthorizedResponse(request: NextRequest) {
   return response;
 }
 
-function isInvalidSessionError(error: {
-  status?: number;
-  code?: string;
-  message?: string;
-}) {
-  return (
-    error.status === 401 ||
-    error.status === 403 ||
-    error.code === "refresh_token_not_found" ||
-    error.message?.includes("Refresh Token")
-  );
-}
-
 export async function requireClaims(
   request: NextRequest,
   supabase: SupabaseClient,
@@ -49,6 +37,7 @@ export async function requireClaims(
     const { userId, error } = await refreshSessionWithUser(
       supabase,
       getSessionDedupeKey(cookieHeader),
+      { cookieHeader },
     );
 
     if (error) {

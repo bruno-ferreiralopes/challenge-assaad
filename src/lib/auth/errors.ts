@@ -77,6 +77,46 @@ export function getAuthErrorMessage(error: unknown): string {
   return "Ocorreu um erro inesperado. Tente novamente.";
 }
 
+export function getAuthErrorStatus(error: unknown): number {
+  if (error instanceof SupabaseAuthError) {
+    if (error.code === "over_request_rate_limit") {
+      return 429;
+    }
+
+    if (error.code === "email_not_confirmed" || error.code === "user_banned") {
+      return 403;
+    }
+
+    if (error.status === 429) {
+      return 429;
+    }
+
+    if (error.status === 403) {
+      return 403;
+    }
+
+    if (error.status === 400 || error.status === 401) {
+      return 401;
+    }
+
+    if (error.status && error.status >= 500) {
+      return 503;
+    }
+
+    if (error.message && isNetworkError(error.message)) {
+      return 503;
+    }
+  }
+
+  if (error instanceof Error) {
+    if (isTimeoutError(error) || isNetworkError(error.message)) {
+      return 503;
+    }
+  }
+
+  return 401;
+}
+
 export function getApiErrorMessage(
   status: number,
   body?: { error?: string },

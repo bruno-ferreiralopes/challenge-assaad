@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { isInvalidSessionError } from "@/lib/auth/invalid-session";
 import {
   getSessionDedupeKey,
   refreshSessionWithUser,
@@ -13,23 +14,14 @@ import {
   isProtectedRoute,
 } from "./routes";
 
-function isInvalidSessionError(error: {
-  status?: number;
-  code?: string;
-  message?: string;
-}) {
-  return (
-    error.status === 401 ||
-    error.status === 403 ||
-    error.code === "refresh_token_not_found" ||
-    error.message?.includes("Refresh Token")
-  );
-}
-
 function shouldSkipSessionRefresh(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/api/auth/refresh")) {
+  if (
+    pathname.startsWith("/api/auth/refresh") ||
+    pathname.startsWith("/api/auth/login") ||
+    pathname.startsWith("/api/auth/logout")
+  ) {
     return true;
   }
 
@@ -71,6 +63,7 @@ export async function handleAuthProxy(request: NextRequest) {
   const { userId, error } = await refreshSessionWithUser(
     supabase,
     getSessionDedupeKey(cookieHeader),
+    { cookieHeader },
   );
   const isAuthenticated = Boolean(userId);
 

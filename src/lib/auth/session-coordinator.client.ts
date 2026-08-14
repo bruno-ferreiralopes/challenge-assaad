@@ -28,13 +28,14 @@ function broadcast(message: SessionSyncMessage) {
   channel.close();
 }
 
-async function requestRefresh(): Promise<boolean> {
+async function requestRefresh(force = false): Promise<boolean> {
   const response = await fetch("/api/auth/refresh", {
     method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
+    body: JSON.stringify({ force }),
   });
 
   let body: { success?: boolean; userId?: string; error?: string } = {};
@@ -65,10 +66,14 @@ async function requestRefresh(): Promise<boolean> {
   return false;
 }
 
-export async function coordinatedRefresh(): Promise<boolean> {
+export async function coordinatedRefresh(
+  options: { force?: boolean } = {},
+): Promise<boolean> {
   if (sharedRefreshPromise) {
     return sharedRefreshPromise;
   }
+
+  const force = options.force === true;
 
   sharedRefreshPromise = (async () => {
     broadcast({
@@ -78,10 +83,12 @@ export async function coordinatedRefresh(): Promise<boolean> {
     });
 
     if (typeof navigator !== "undefined" && "locks" in navigator) {
-      return navigator.locks.request(SESSION_REFRESH_LOCK, requestRefresh);
+      return navigator.locks.request(SESSION_REFRESH_LOCK, () =>
+        requestRefresh(force),
+      );
     }
 
-    return requestRefresh();
+    return requestRefresh(force);
   })().finally(() => {
     sharedRefreshPromise = null;
   });

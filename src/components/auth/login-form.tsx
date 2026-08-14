@@ -1,12 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
-import { loginAction, type AuthActionState } from "@/lib/auth/actions";
+import { getApiErrorMessage } from "@/lib/auth/errors";
 import { FormTooltip } from "@/components/ui/form-tooltip";
 import { Spinner } from "../ui/spinner";
-
-const initialState: AuthActionState = {};
 
 type FieldErrors = {
   email?: string;
@@ -32,53 +30,68 @@ function validateForm(form: HTMLFormElement): FieldErrors {
 }
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(
-    loginAction,
-    initialState,
-  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | undefined>();
   const [tooltipResetKey, setTooltipResetKey] = useState(0);
-  const hasRedirected = useRef(false);
+  const [isPending, setIsPending] = useState(false);
 
-  useEffect(() => {
-    if (!state.success || hasRedirected.current) {
-      return;
-    }
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    hasRedirected.current = true;
-    window.location.assign("/dashboard");
-  }, [state.success]);
-
-  useEffect(() => {
-    if (!state.error) {
-      return;
-    }
-
-    if (state.email) {
-      setEmail(state.email);
-    }
-
-    setFormError(state.error);
-    setTooltipResetKey((current) => current + 1);
-  }, [state.error, state.email]);
-
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     const errors = validateForm(event.currentTarget);
     setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) {
       setTooltipResetKey((current) => current + 1);
-      event.preventDefault();
+      return;
+    }
+
+    setIsPending(true);
+    setFormError(undefined);
+
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+
+      let body: { error?: string } = {};
+
+      try {
+        body = (await response.json()) as { error?: string };
+      } catch {
+        body = {};
+      }
+
+      if (response.ok) {
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      setFormError(
+        body.error ?? getApiErrorMessage(response.status, body),
+      );
+      setTooltipResetKey((current) => current + 1);
+    } catch {
+      setFormError(
+        "Nao foi possivel conectar ao servidor. Verifique sua conexao e tente novamente.",
+      );
+      setTooltipResetKey((current) => current + 1);
+    } finally {
+      setIsPending(false);
     }
   }
 
   return (
     <form
       noValidate
-      action={formAction}
       onSubmit={handleSubmit}
       className="flex w-full max-w-sm flex-col gap-4"
     >
