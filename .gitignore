@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# AI Agent logs & local cache
+.agents/
+.agent/
+
+# Abre exceção apenas para a pasta de regras/instruções
+!.agents/rules/
+!.agents/instructions.md
