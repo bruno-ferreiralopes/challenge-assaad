@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 
-const protectedRoutes = ["/dashboard"] as const;
+const protectedRoutes = ["/dashboard", "/demo"] as const;
 const authRoutes = ["/login"] as const;
 
 export function isProtectedRoute(pathname: string) {

@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import {
+  getSessionDedupeKey,
+  refreshSessionWithUser,
+} from "@/lib/auth/refresh-session-server";
 import { clearSupabaseCookies } from "@/lib/auth/session-cookies";
 import { createRequestClient } from "@/lib/supabase/request-client";
 
@@ -22,17 +26,27 @@ function isInvalidSessionError(error: {
   );
 }
 
-export async function handleAuthProxy(request: NextRequest) {
+function shouldSkipSessionRefresh(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/api/")) {
-    return NextResponse.next();
+  if (pathname.startsWith("/api/auth/refresh")) {
+    return true;
   }
 
   if (
     request.method === "POST" &&
     (pathname === "/login" || isProtectedRoute(pathname) || isAuthRoute(pathname))
   ) {
+    return true;
+  }
+
+  return false;
+}
+
+export async function handleAuthProxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (shouldSkipSessionRefresh(request)) {
     return NextResponse.next();
   }
 
@@ -42,9 +56,23 @@ export async function handleAuthProxy(request: NextRequest) {
     return response;
   }
 
+  if (!hasSupabaseAuthCookie(request)) {
+    if (isProtectedRoute(pathname)) {
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      clearSupabaseCookies(request, response);
+      return response;
+    }
+
+    return NextResponse.next();
+  }
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
   const { supabase, supabaseResponse } = createRequestClient(request);
-  const { data, error } = await supabase.auth.getClaims();
-  const isAuthenticated = Boolean(data?.claims?.sub);
+  const { userId, error } = await refreshSessionWithUser(
+    supabase,
+    getSessionDedupeKey(cookieHeader),
+  );
+  const isAuthenticated = Boolean(userId);
 
   if (error && isInvalidSessionError(error)) {
     if (isProtectedRoute(pathname)) {

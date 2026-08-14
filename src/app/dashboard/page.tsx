@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { getUserProfile } from "@/lib/user/profile";
@@ -27,6 +28,13 @@ export default async function DashboardPage() {
 
         <UserProfileCard user={user} />
         <HealthCheckPanel />
+
+        <Link
+          href="/demo/multi-tab"
+          className="block rounded-lg border border-dashed border-zinc-300 px-4 py-3 text-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
+        >
+          Abrir demonstracao multi-aba (refresh coordenado)
+        </Link>
 
         <LogoutButton />
       </div>

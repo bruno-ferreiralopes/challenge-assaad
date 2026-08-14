@@ -2,6 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { getApiErrorMessage } from "@/lib/auth/errors";
+import {
+  getSessionDedupeKey,
+  refreshSessionWithUser,
+} from "@/lib/auth/refresh-session-server";
 import { clearSupabaseCookies } from "@/lib/auth/session-cookies";
 
 type AuthSuccess = {
@@ -23,17 +27,32 @@ function unauthorizedResponse(request: NextRequest) {
   return response;
 }
 
+function isInvalidSessionError(error: {
+  status?: number;
+  code?: string;
+  message?: string;
+}) {
+  return (
+    error.status === 401 ||
+    error.status === 403 ||
+    error.code === "refresh_token_not_found" ||
+    error.message?.includes("Refresh Token")
+  );
+}
+
 export async function requireClaims(
   request: NextRequest,
   supabase: SupabaseClient,
 ): Promise<AuthSuccess | AuthFailure> {
   try {
-    const { data, error } = await supabase.auth.getClaims();
+    const cookieHeader = request.headers.get("cookie") ?? "";
+    const { userId, error } = await refreshSessionWithUser(
+      supabase,
+      getSessionDedupeKey(cookieHeader),
+    );
 
     if (error) {
-      const status = error.status ?? 503;
-
-      if (status === 401 || status === 403) {
+      if (isInvalidSessionError(error)) {
         return {
           ok: false,
           response: unauthorizedResponse(request),
@@ -49,7 +68,7 @@ export async function requireClaims(
       };
     }
 
-    if (!data?.claims?.sub) {
+    if (!userId) {
       return {
         ok: false,
         response: unauthorizedResponse(request),
@@ -58,7 +77,7 @@ export async function requireClaims(
 
     return {
       ok: true,
-      userId: String(data.claims.sub),
+      userId,
     };
   } catch {
     return {
