@@ -67,7 +67,11 @@ export function getAuthErrorMessage(error: unknown): string {
   }
 
   if (error instanceof Error) {
-    if (isTimeoutError(error) || isNetworkError(error.message)) {
+    if (isTimeoutError(error)) {
+      return "O servidor de autenticacao demorou para responder. Tente novamente em instantes.";
+    }
+
+    if (isNetworkError(error.message)) {
       return "Nao foi possivel conectar ao servidor. Verifique sua conexao e tente novamente.";
     }
 
@@ -109,7 +113,11 @@ export function getAuthErrorStatus(error: unknown): number {
   }
 
   if (error instanceof Error) {
-    if (isTimeoutError(error) || isNetworkError(error.message)) {
+    if (isTimeoutError(error)) {
+      return 504;
+    }
+
+    if (isNetworkError(error.message)) {
       return 503;
     }
   }

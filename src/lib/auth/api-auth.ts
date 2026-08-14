@@ -83,8 +83,8 @@ export function attachSessionCookies(
   jsonResponse: NextResponse,
   supabaseResponse: NextResponse,
 ) {
-  supabaseResponse.cookies.getAll().forEach(({ name, value }) => {
-    jsonResponse.cookies.set(name, value);
+  supabaseResponse.cookies.getAll().forEach((cookie) => {
+    jsonResponse.cookies.set(cookie);
   });
   jsonResponse.headers.set("Cache-Control", "private, no-store");
   return jsonResponse;

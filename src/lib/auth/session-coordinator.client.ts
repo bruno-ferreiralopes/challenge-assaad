@@ -38,7 +38,7 @@ async function requestRefresh(force = false): Promise<boolean> {
     body: JSON.stringify({ force }),
   });
 
-  let body: { success?: boolean; userId?: string; error?: string } = {};
+  let body: { success?: boolean; skipped?: boolean; userId?: string; error?: string } = {};
 
   try {
     body = await response.json();
@@ -46,14 +46,20 @@ async function requestRefresh(force = false): Promise<boolean> {
     body = {};
   }
 
-  if (response.ok && body.success) {
-    broadcast({
-      type: "refresh-success",
-      tabId,
-      at: new Date().toISOString(),
-      userId: body.userId,
-    });
-    return true;
+  if (response.ok) {
+    if (body.success) {
+      broadcast({
+        type: "refresh-success",
+        tabId,
+        at: new Date().toISOString(),
+        userId: body.userId,
+      });
+      return true;
+    }
+
+    if (body.skipped) {
+      return false;
+    }
   }
 
   broadcast({

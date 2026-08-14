@@ -3,33 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { attachSessionCookies } from "@/lib/auth/api-auth";
 import { getAuthErrorMessage, getAuthErrorStatus } from "@/lib/auth/errors";
 import { clearSupabaseCookies } from "@/lib/auth/session-cookies";
-import { createRequestClient } from "@/lib/supabase/request-client";
-
-//Remove cookies do Supabase do request
-function stripSupabaseCookies(request: NextRequest) {
-  const headers = new Headers(request.headers);
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  const filteredCookies = cookieHeader
-    .split(";")
-    .map((cookie) => cookie.trim())
-    .filter((cookie) => cookie && !cookie.startsWith("sb-"))
-    .join("; ");
-
-  if (filteredCookies) {
-    headers.set("cookie", filteredCookies);
-  } else {
-    headers.delete("cookie");
-  }
-
-  return new NextRequest(request.url, {
-    method: request.method,
-    headers,
-  });
-}
+import { createLoginClient } from "@/lib/supabase/login-client";
 
 type LoginValidationError = { error: string };
 type LoginCredentials = { email: string; password: string };
-//Parseia o body da request e retorna um objeto com o email e a senha
+
 function parseLoginBody(body: unknown): LoginValidationError | LoginCredentials {
   if (typeof body !== "object" || body === null) {
     return { error: "Email e senha sao obrigatorios." };
@@ -57,7 +35,6 @@ function parseLoginBody(body: unknown): LoginValidationError | LoginCredentials 
   return { email: trimmedEmail, password };
 }
 
-//Cria uma resposta de erro com o status e a mensagem
 function errorResponse(
   request: NextRequest,
   message: string,
@@ -68,7 +45,6 @@ function errorResponse(
   return response;
 }
 
-//Rota para login
 export async function POST(request: NextRequest) {
   let body: unknown;
 
@@ -89,9 +65,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { email, password } = parsed;
-
-  const loginRequest = stripSupabaseCookies(request);
-  const { supabase, supabaseResponse } = createRequestClient(loginRequest);
+  const { supabase, getSupabaseResponse } = createLoginClient();
 
   try {
     const { error } = await supabase.auth.signInWithPassword({
@@ -107,10 +81,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return attachSessionCookies(
-      NextResponse.json({ success: true }),
-      supabaseResponse,
-    );
+    const response = NextResponse.json({ success: true });
+    clearSupabaseCookies(request, response);
+
+    return attachSessionCookies(response, getSupabaseResponse());
   } catch (error) {
     return errorResponse(
       request,

@@ -96,7 +96,7 @@ export function getAccessTokenExpFromCookies(cookies: CookieLike[]): number | nu
   return null;
 }
 
-export function getAccessTokenExpFromCookieHeader(cookieHeader: string) {
+function parseCookieHeader(cookieHeader: string): CookieLike[] {
   const cookies: CookieLike[] = [];
 
   for (const part of cookieHeader.split(";")) {
@@ -118,7 +118,49 @@ export function getAccessTokenExpFromCookieHeader(cookieHeader: string) {
     });
   }
 
-  return getAccessTokenExpFromCookies(cookies);
+  return cookies;
+}
+
+function decodeJwtPayload(accessToken: string) {
+  const parts = accessToken.split(".");
+
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(decodeBase64Url(parts[1])) as {
+      sub?: unknown;
+      exp?: unknown;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getSessionFromCookieHeader(cookieHeader: string) {
+  const sessionValue = getAuthTokenCookieChunks(parseCookieHeader(cookieHeader));
+
+  if (!sessionValue) {
+    return null;
+  }
+
+  return parseSessionValue(sessionValue);
+}
+
+export function getUserIdFromCookieHeader(cookieHeader: string): string | null {
+  const session = getSessionFromCookieHeader(cookieHeader);
+
+  if (!session?.access_token) {
+    return null;
+  }
+
+  const payload = decodeJwtPayload(session.access_token);
+  return typeof payload?.sub === "string" ? payload.sub : null;
+}
+
+export function getAccessTokenExpFromCookieHeader(cookieHeader: string) {
+  return getAccessTokenExpFromCookies(parseCookieHeader(cookieHeader));
 }
 
 export function shouldRefreshSession(

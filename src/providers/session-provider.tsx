@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 import {
@@ -12,8 +13,18 @@ type SessionProviderProps = {
   children: React.ReactNode;
 };
 
+function isLoginRoute(pathname: string) {
+  return pathname === "/login" || pathname.startsWith("/login/");
+}
+
 export function SessionProvider({ children }: SessionProviderProps) {
+  const pathname = usePathname();
+
   useEffect(() => {
+    if (isLoginRoute(pathname)) {
+      return;
+    }
+
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
         void coordinatedRefresh();
@@ -40,7 +51,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       window.removeEventListener("focus", handleWindowFocus);
       unsubscribe();
     };
-  }, []);
+  }, [pathname]);
 
   return children;
 }

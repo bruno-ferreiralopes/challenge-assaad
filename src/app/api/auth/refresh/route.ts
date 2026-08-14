@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { attachSessionCookies } from "@/lib/auth/api-auth";
 import { getApiErrorMessage } from "@/lib/auth/errors";
 import { isInvalidSessionError } from "@/lib/auth/invalid-session";
+import { hasSupabaseAuthCookie } from "@/lib/auth/routes";
 import {
   getSessionDedupeKey,
   refreshSessionWithUser,
@@ -10,17 +11,12 @@ import {
 import { clearSupabaseCookies } from "@/lib/auth/session-cookies";
 import { createRequestClient } from "@/lib/supabase/request-client";
 
-//Rota para refresh
 export async function POST(request: NextRequest) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-
-  if (!cookieHeader.includes("sb-")) {
-    return NextResponse.json(
-      { success: false, error: getApiErrorMessage(401) },
-      { status: 401 },
-    );
+  if (!hasSupabaseAuthCookie(request)) {
+    return NextResponse.json({ success: false, skipped: true });
   }
 
+  const cookieHeader = request.headers.get("cookie") ?? "";
   let forceRefresh = false;
 
   try {
@@ -30,7 +26,7 @@ export async function POST(request: NextRequest) {
     forceRefresh = false;
   }
 
-  const { supabase, supabaseResponse } = createRequestClient(request);
+  const { supabase, getSupabaseResponse } = createRequestClient(request);
   const { userId, skipped, error } = await refreshSessionWithUser(
     supabase,
     getSessionDedupeKey(cookieHeader),
@@ -55,6 +51,6 @@ export async function POST(request: NextRequest) {
 
   return attachSessionCookies(
     NextResponse.json({ success: true, userId, skipped }),
-    supabaseResponse,
+    getSupabaseResponse(),
   );
 }

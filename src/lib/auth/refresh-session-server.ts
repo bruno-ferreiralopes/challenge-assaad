@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { shouldRefreshSession } from "@/lib/auth/session-cookie";
+import {
+  getUserIdFromCookieHeader,
+  shouldRefreshSession,
+} from "@/lib/auth/session-cookie";
 
 export type RefreshSessionResult = {
   userId: string | null;
@@ -25,27 +28,11 @@ type RefreshSessionOptions = {
   forceRefresh?: boolean;
 };
 
-async function readSessionLocally(
-  supabase: SupabaseClient,
-): Promise<RefreshSessionResult> {
-  const { data, error } = await supabase.auth.getClaims();
-
-  if (error || !data?.claims?.sub) {
-    return {
-      userId: null,
-      skipped: true,
-      error: error
-        ? {
-            status: error.status,
-            code: error.code,
-            message: error.message,
-          }
-        : null,
-    };
-  }
+function readSessionFromCookies(cookieHeader: string): RefreshSessionResult {
+  const userId = getUserIdFromCookieHeader(cookieHeader);
 
   return {
-    userId: String(data.claims.sub),
+    userId,
     skipped: true,
     error: null,
   };
@@ -66,7 +53,11 @@ export async function refreshSessionWithUser(
 
   const refreshPromise = (async () => {
     if (!forceRefresh && cookieHeader && !shouldRefreshSession(cookieHeader)) {
-      return readSessionLocally(supabase);
+      const localSession = readSessionFromCookies(cookieHeader);
+
+      if (localSession.userId) {
+        return localSession;
+      }
     }
 
     const {

@@ -1,5 +1,8 @@
 # Challenge Assaad - Sessao Supabase sem deslogamento aleatorio
 
+Testável em `https://challenge-assaad-sigma.vercel.app/`
+
+
 App Next.js 16 (App Router) + Supabase Auth com sessao em cookies `httpOnly` (SSR).
 
 Este repositorio implementa a solucao para o problema de **deslogamento aleatorio** causado por condicao de corrida no refresh de tokens entre abas e requisicoes simultaneas.
@@ -173,12 +176,4 @@ npm run start  # Servidor de producao
 - Cookies sao `httpOnly`: o browser nao le o JWT diretamente; refresh sempre passa pelo servidor (`/api/auth/refresh` ou proxy).
 - O formulario de login **exige JavaScript** (migrado de Server Action para Route Handler pela observabilidade de status HTTP).
 - Nao ha rate limiting na aplicacao; o limite vigente é o do proprio Supabase.
-
-
-
-## Referencias
-
-- [Supabase SSR - Next.js](https://supabase.com/docs/guides/auth/server-side/nextjs)
-- [Web Locks API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
-- [BroadcastChannel API](https://developer.mozilla.org/en-US/docs/Web/API/BroadcastChannel)
 

@@ -4,7 +4,7 @@ import { attachSessionCookies, requireClaims } from "@/lib/auth/api-auth";
 import { createRequestClient } from "@/lib/supabase/request-client";
 
 export async function GET(request: NextRequest) {
-  const { supabase, supabaseResponse } = createRequestClient(request);
+  const { supabase, getSupabaseResponse } = createRequestClient(request);
   const auth = await requireClaims(request, supabase);
 
   if (!auth.ok) {
@@ -18,6 +18,6 @@ export async function GET(request: NextRequest) {
       userId: auth.userId,
       checkedAt: new Date().toISOString(),
     }),
-    supabaseResponse,
+    getSupabaseResponse(),
   );
 }

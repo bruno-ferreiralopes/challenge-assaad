@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { supabaseCookieOptions } from "./cookie-options";
 import { supabaseFetch } from "./fetch-with-timeout";
@@ -7,13 +7,9 @@ import { supabaseFetch } from "./fetch-with-timeout";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
-export function createRequestClient(request: NextRequest) {
+export function createLoginClient() {
   const sessionResponse = {
-    current: NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
-    }),
+    current: NextResponse.next(),
   };
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -23,15 +19,10 @@ export function createRequestClient(request: NextRequest) {
     },
     cookies: {
       getAll() {
-        return request.cookies.getAll();
+        return [];
       },
       setAll(cookiesToSet, cacheHeaders) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value),
-        );
-        sessionResponse.current = NextResponse.next({
-          request,
-        });
+        sessionResponse.current = NextResponse.next();
         cookiesToSet.forEach(({ name, value, options }) =>
           sessionResponse.current.cookies.set(name, value, options),
         );

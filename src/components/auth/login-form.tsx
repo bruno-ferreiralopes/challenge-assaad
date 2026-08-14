@@ -62,15 +62,15 @@ export function LoginForm() {
         }),
       });
 
-      let body: { error?: string } = {};
+      let body: { success?: boolean; error?: string } = {};
 
       try {
-        body = (await response.json()) as { error?: string };
+        body = (await response.json()) as { success?: boolean; error?: string };
       } catch {
         body = {};
       }
 
-      if (response.ok) {
+      if (response.ok && body.success) {
         window.location.href = "/dashboard";
         return;
       }

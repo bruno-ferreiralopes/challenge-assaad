@@ -59,7 +59,7 @@ export async function handleAuthProxy(request: NextRequest) {
   }
 
   const cookieHeader = request.headers.get("cookie") ?? "";
-  const { supabase, supabaseResponse } = createRequestClient(request);
+  const { supabase, getSupabaseResponse } = createRequestClient(request);
   const { userId, error } = await refreshSessionWithUser(
     supabase,
     getSessionDedupeKey(cookieHeader),
@@ -92,6 +92,7 @@ export async function handleAuthProxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  supabaseResponse.headers.set("Cache-Control", "private, no-store");
-  return supabaseResponse;
+  const response = getSupabaseResponse();
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
 }
