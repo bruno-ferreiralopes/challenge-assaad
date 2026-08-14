@@ -2,7 +2,6 @@
 
 Testável em `https://challenge-assaad-sigma.vercel.app/`
 
-
 App Next.js 16 (App Router) + Supabase Auth com sessao em cookies `httpOnly` (SSR).
 
 Este repositorio implementa a solucao para o problema de **deslogamento aleatorio** causado por condicao de corrida no refresh de tokens entre abas e requisicoes simultaneas.
@@ -147,33 +146,7 @@ src/
     dashboard/health-check-panel.tsx    # Demo de authenticatedFetch
 ```
 
-
-
-## Variaveis de ambiente
-
-Crie `.env.local` na raiz:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
-```
-
-
-
-## Scripts
-
-```bash
-npm run dev    # Desenvolvimento
-npm run build  # Build de producao
-npm run start  # Servidor de producao
-```
-
-
-
 ## Limitacoes conhecidas
 
 - A deduplicacao server-side funciona **por instancia Node**. Em serverless com muitas instancias, a coordenacao client-side (Web Lock + BroadcastChannel) e o mecanismo principal anti-corrida.
-- Cookies sao `httpOnly`: o browser nao le o JWT diretamente; refresh sempre passa pelo servidor (`/api/auth/refresh` ou proxy).
-- O formulario de login **exige JavaScript** (migrado de Server Action para Route Handler pela observabilidade de status HTTP).
-- Nao ha rate limiting na aplicacao; o limite vigente é o do proprio Supabase.
 
